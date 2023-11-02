@@ -199,6 +199,63 @@ def calculate_vorticity(uvel,vvel,dxC,dyC,rAZ,f):
     field[:,:] = zeta / np.asarray(f[:-1, :-1])
     return field
 
+def YMD_to_DecYr(year,month,day):
+    start = dt.datetime(int(year),1,1).timestamp()
+    end = dt.datetime(int(year)+1,1,1).timestamp()
+    current =  dt.datetime(int(year),int(month),int(day)).timestamp()
+    current_diff = current-start
+    percent = current_diff/(start-end)
+    decY = int(year)-percent
+    # define a date object using the datetime module
+    return decY
 
+def convert_mitgcm_grid_to_nc(path_to_grid_files,dim_of_grid,output_path='./grid.nc'):
+    grid_prefix_2d = ['Depth','DXV','DYU','RAZ','YC','DXC','DYC','XC','YG','DXG','DYG','RAC','XG']
+    grid_prefix_3d = ['hFacC']
+    if type(dim_of_grid)==tuple:
+        dimx, dimy = dim_of_grid[0], dim_of_grid[1]
+        try:
+            dimz = dim_of_grid[2]
+        except:
+            print('no 3d shape')
+    elif type(dim_of_grid)==str:
+        dimx, dimy = dim_of_grid.split('_')[1].split('x')
+        try:
+            dimz = dim_of_grid[2]
+        except:
+    
+            print('no 3d shape')
+    #2D files
+    for i in range(0,len(grid_prefix_2d)):
+        file1 = path_to_grid_files+'/'+grid_prefix_2d[i]+'_'+str(dimx)+'x'+str(dimy)
+        file_name1 = grid_prefix_2d[i]+'_'+str(dimx)+'x'+str(dimy)
+        shape = (dimx,dimy) 
+        i0 = np.arange(dimx)
+        j0 = np.arange(dimy)
+        dim = ['i','j']
+        coord = [i0,j0]
+        convert_binary_to_nc(file_name1,file1,shape,dim,coord,grid_prefix_2d[i],output_filepath= './.'+file_name1+'.nc')
+    
+    #3D files
+    try:
+        k0 = np.arange(dimz)
+        dim = ['i','j','k']
+        coords = [i0,j0,k0]
+        
+        for j in range(0,len(grid_prefix_3d)):
+            file2 = path_to_grid_files+'/'+grid_prefix_3d[j]+'_'+str(dimx)+'x'+str(dimy)+'x'+str(dimz)
+            file_name2 = grid_prefix_3d[j]+'_'+str(dimx)+'x'+str(dimy)+'x'+str(dimz)
+            shape = (dimx,dimy,dimz)
+            convert_binary_to_nc(file_name2,file2,shape,dim,coords,grid_prefix_3d[j],output_filepath= './.'+file_name2+'.nc')
+    except:
+        print('no 3d shape')
+    two_d_files, two_d_filepaths= get_data_paths_from_binary('./','./',delim='_',file_end=str(dim_of_grid[0])+'x'+str(dim_of_grid[1])+'.nc')
+    three_d_files, three_d_filepaths = get_data_paths_from_binary('./','./',delim='_',file_end=str(dim_of_grid[0])+'x'+str(dim_of_grid[1])+'x'+str(dim_of_grid[2])+'.nc')
+    total_file_paths = two_d_filepaths+three_d_filepaths
+    grid_full = xr.open_mfdataset(total_file_paths)
+    grid_full.to_netcdf(output_path)
+    grid_full.close()
+    for files in total_file_paths:
+                   os.system('rm '+ files)
     
     
